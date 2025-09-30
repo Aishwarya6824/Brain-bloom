@@ -1,4 +1,4 @@
-# 🐾 Brain Buddy (Deep Learning)
+# 🐾 Brain Bloom (Deep Learning)
 
 This project is a **Deep Learning–based Cognitive Retraining Tool** designed to assist children with disabilities in improving **memory, attention, and language skills** through gamified exercises.
 
