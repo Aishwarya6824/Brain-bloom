@@ -80,7 +80,7 @@ This will:
 
 - Save class mapping → models/class_mapping.json
 
-  ### 2. Run the application
-  ```bash
-  python app/main_app.py
+### 2. Run the application
+```bash
+python app/main_app.py
 ```
