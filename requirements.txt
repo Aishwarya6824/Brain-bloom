@@ -1,0 +1,9 @@
+tensorflow==2.12.0
+numpy
+pillow
+pandas
+matplotlib
+scikit-learn
+tk
+h5py
+sqlite3-binary
