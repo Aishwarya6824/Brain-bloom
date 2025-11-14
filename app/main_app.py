@@ -7,12 +7,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Paths
-DATA_DIR = "D:/cog_retrain/data/images"
-SENT_PATH = "D:/cog_retrain/data/sentences/sentences.csv"
-MODEL_PATH = "D:/cog_retrain/models/cnn_model.h5"
-MAPPING_PATH = "D:/cog_retrain/models/class_mapping.json"
-LOG_DB = "D:/cog_retrain/logs/sessions.db"
-
+DATA_DIR = "C:/Users/Admin/Brain-Bloom/data/images"
+SENT_PATH = "C:/Users/Admin/Brain-Bloom/data/sentences/sentences.csv"
+MODEL_PATH = "C:/Users/Admin/Brain-Bloom/models/cnn_model.h5"
+MAPPING_PATH = "C:/Users/Admin/Brain-Bloom/models/class_mapping.json"
+LOG_DB = "C:/Users/Admin/Brain-Bloom/logs/sessions.db"
 # Colors & styles
 BG_COLOR = "#f0f8ff"
 BTN_COLOR = "#aed6f1"
@@ -24,6 +23,7 @@ TEXT_FONT = ("Arial", 14, "bold")
 CLASS_LIST = os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else []
 print("DEBUG - Looking for images in:", os.path.abspath(DATA_DIR))
 print("DEBUG - Found classes:", CLASS_LIST)
+print("DB is being created at:", os.path.abspath(LOG_DB))
 
 # Load sentences
 SENTENCES = []
@@ -69,6 +69,15 @@ class CogTrainerApp:
                       font=TEXT_FONT, width=22, height=2,
                       bg=BTN_COLOR, activebackground=BTN_ACTIVE).pack(pady=8)
 
+    # ---------------- Helper: Log to DB ----------------
+    def log_attempt(self, feature, item_id, user_response, correct, confidence=None, duration=0):
+        cur.execute(
+            "INSERT INTO attempts (user_id, session_date, feature, item_id, user_response, correct, model_confidence, duration) "
+            "VALUES (?, date('now'), ?, ?, ?, ?, ?, ?)",
+            (self.user_id, feature, item_id, user_response, correct, confidence, duration)
+        )
+        conn.commit()
+
     # Feature A: Tutorial
     def tutorial(self):
         top = tk.Toplevel(self.root, bg=BG_COLOR)
@@ -111,6 +120,8 @@ class CogTrainerApp:
         def next_q():
             cls = random.choice(CLASS_LIST)
             img_path = os.path.join(DATA_DIR, cls, random.choice(os.listdir(os.path.join(DATA_DIR, cls))))
+
+
             img = Image.open(img_path).resize((250, 250))
             tk_img = ImageTk.PhotoImage(img)
             img_label.config(image=tk_img)
@@ -127,11 +138,22 @@ class CogTrainerApp:
 
         def check(choice, truth):
             stats["total"] += 1
-            if choice == truth:
+            correct = int(choice == truth)
+
+            # Log to DB
+            self.log_attempt(
+                feature="Classification Quiz",
+                item_id=truth,
+                user_response=choice,
+                correct=correct
+            )
+
+            if correct:
                 stats["score"] += 1
                 feedback.config(text="🎉 Correct!", fg="green")
             else:
                 feedback.config(text=f"❌ Oops! It was {truth}", fg="red")
+
             score_var.set(f"Score: {stats['score']}/{stats['total']} ⭐")
             top.after(1500, next_q)
 
@@ -168,7 +190,17 @@ class CogTrainerApp:
                           command=lambda o=opt: check(o, truth)).pack(side=tk.LEFT, padx=6)
 
         def check(choice, truth):
-            if choice == truth:
+            correct = int(choice == truth)
+
+            # Log Recall attempt
+            self.log_attempt(
+                feature="Timed Recall",
+                item_id=truth,
+                user_response=choice,
+                correct=correct
+            )
+
+            if correct:
                 feedback.config(text="🎉 Great memory!", fg="green")
             else:
                 feedback.config(text=f"❌ It was {truth}", fg="red")
@@ -205,19 +237,34 @@ class CogTrainerApp:
             built = " ".join(top.selected)
             feedback.config(text=f"Constructed: {built}")
             if len(top.selected) == len(truth.split()):
-                if built.lower() == truth.lower():
+                correct = int(built.lower() == truth.lower())
+
+                # Log this attempt
+                self.log_attempt(
+                    feature="Sentence Builder",
+                    item_id=truth,
+                    user_response=built,
+                    correct=correct
+                )
+
+                if correct:
                     feedback.config(text="🎉 Correct Sentence!", fg="green")
                 else:
                     feedback.config(text=f"❌ Wrong! Correct: {truth}", fg="red")
+
                 top.after(2000, next_sent)
 
         next_sent()
 
     # Feature E: Performance Tracker
     def tracker(self):
-        df = pd.read_sql_query("SELECT feature, correct FROM attempts", conn)
+        df = pd.read_sql_query(
+            "SELECT feature, correct FROM attempts WHERE user_id = ?",
+            conn,
+            params=(self.user_id,)
+        )
         if df.empty:
-            messagebox.showinfo("Info", "No data yet.")
+            messagebox.showinfo("Info", f"No data yet for {self.user_id}.")
             return
         agg = df.groupby("feature")["correct"].mean() * 100
         fig, ax = plt.subplots()
@@ -225,6 +272,7 @@ class CogTrainerApp:
         ax.set_ylabel("Accuracy %")
         ax.set_title(f"Performance of {self.user_id}")
         plt.show()
+
 
 
 if __name__ == "__main__":
