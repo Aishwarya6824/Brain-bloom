@@ -60,8 +60,7 @@ During installation, check **"Add Python to PATH"**.
 
 ### 2. Install dependencies
 ```bash
-pip install tensorflow keras pillow matplotlib scikit-learn spacy
-python -m spacy download en_core_web_sm
+pip install -r requirements.txt
 ```
 
 ---
